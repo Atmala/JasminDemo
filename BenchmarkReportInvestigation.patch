@@ -1,0 +1,67 @@
+Index: IFS.BusinessLayer/IFSSeries/DerivedReturns/MarketValueReturnsCalculator.cs
+===================================================================
+--- IFS.BusinessLayer/IFSSeries/DerivedReturns/MarketValueReturnsCalculator.cs	(revision 59104)
++++ IFS.BusinessLayer/IFSSeries/DerivedReturns/MarketValueReturnsCalculator.cs	(working copy)
+@@ -224,6 +224,7 @@
+             portReturn.Activity = GetActivity(history);
+             lastMv += portReturn.Activity;
+             portReturn.GainLoss = portReturn.MarketValue - lastMv + GetDividents(history);
++            portReturn.GainLossExcludingDivs = portReturn.MarketValue - lastMv;
+             portReturn.DataDerived = CAmount.Zero() == lastMv ? double.NaN : portReturn.GainLoss / lastMv;
+             return portReturn;
+         }
+Index: IFS.BusinessLayer/Price/DataFund.cs
+===================================================================
+--- IFS.BusinessLayer/Price/DataFund.cs	(revision 59104)
++++ IFS.BusinessLayer/Price/DataFund.cs	(working copy)
+@@ -310,7 +310,7 @@
+                 return DataDividendsBase;
+             if (double.IsNaN(DataDividendsBase))
+                 return d;
+-            return d + DataDividendsBase;
++            return d;// + DataDividendsBase;
+         }
+ 
+         public void SetReturn(double ret)
+Index: IFS.BusinessLayer/Price/DataPortfolio.cs
+===================================================================
+--- IFS.BusinessLayer/Price/DataPortfolio.cs	(revision 59104)
++++ IFS.BusinessLayer/Price/DataPortfolio.cs	(working copy)
+@@ -103,7 +103,10 @@
+             {
+                 return DataDerivedIncludingIntraMonth; 
+             }
+-        }
++        }
++
++        public CAmount GainLossExcludingDivs { get; set; }
++
+         public bool IsNaN(bool derivedAndNetOnly)
+         {
+             return derivedAndNetOnly ? double.IsNaN(DataReturn) : double.IsNaN(DataReturn) && double.IsNaN(DataPresent);
+Index: IFS.BusinessLayer/Reports/BenchmarkPerformance/ClosingNavCalculator.cs
+===================================================================
+--- IFS.BusinessLayer/Reports/BenchmarkPerformance/ClosingNavCalculator.cs	(revision 59104)
++++ IFS.BusinessLayer/Reports/BenchmarkPerformance/ClosingNavCalculator.cs	(working copy)
+@@ -20,7 +20,7 @@
+             return
+                 previousMonthClosingNav +
+                 GetMonthlyCashFlows(derivedReturn.DataEndDate, investorActivities) +
+-                derivedReturn.GainLoss +
++                derivedReturn.GainLossExcludingDivs +
+                 GetMonthlyExpences(derivedReturn.DataEndDate, feesAndExpenses);
+         }
+ 
+Index: IFS.BusinessLayer/Reports/BenchmarkPerformance/NetReturnsCalculator.cs
+===================================================================
+--- IFS.BusinessLayer/Reports/BenchmarkPerformance/NetReturnsCalculator.cs	(revision 59104)
++++ IFS.BusinessLayer/Reports/BenchmarkPerformance/NetReturnsCalculator.cs	(working copy)
+@@ -58,7 +58,7 @@
+ 
+         public CAmount GetPnL(DataPortfolio derivedReturn, IEnumerable<MonthlyAmount> feesAndExpenses)
+         {
+-            return derivedReturn.GainLoss + GetFeesAndExpensesAmount(derivedReturn.DataStartDate, feesAndExpenses);
++            return derivedReturn.GainLossExcludingDivs + GetFeesAndExpensesAmount(derivedReturn.DataStartDate, feesAndExpenses);
+         }
+ 
+         private CAmount GetFeesAndExpensesAmount(DateTime date, IEnumerable<MonthlyAmount> feesAndExpenses)
